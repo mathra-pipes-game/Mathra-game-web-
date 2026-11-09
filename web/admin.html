@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Mathra Pipes – Admin</title>
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#fff; --ink:#1b2333; --sub:#667085; --line:#e3e7ef;
+    --acc:#2f6bff; --ok:#12a150; --warn:#d98a00; --bad:#d92d20;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0f1420; --card:#171e2e; --ink:#e8ecf5; --sub:#93a0b8; --line:#27304a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0;flex:1}
+  header small{color:var(--sub)}
+  nav{display:flex;gap:6px;padding:10px 16px;overflow-x:auto;background:var(--card);border-bottom:1px solid var(--line)}
+  nav button{border:0;background:transparent;color:var(--sub);padding:8px 14px;border-radius:999px;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+  nav button.on{background:var(--acc);color:#fff}
+  main{max-width:1100px;margin:0 auto;padding:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .stat b{display:block;font-size:26px;line-height:1.1}
+  .stat span{color:var(--sub);font-size:12px}
+  .stat.ok b{color:var(--ok)} .stat.warn b{color:var(--warn)}
+  h2{font-size:15px;margin:22px 0 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse}
+  .scroll{overflow-x:auto}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+  th{font-size:12px;color:var(--sub);font-weight:600}
+  tr:last-child td{border-bottom:0}
+  input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-width:100%}
+  input[type=checkbox]{width:auto}
+  label{display:block;font-size:12px;color:var(--sub);margin:8px 0 3px}
+  button.b{font:inherit;font-weight:600;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;background:var(--acc);color:#fff}
+  button.b.ghost{background:transparent;color:var(--acc);border:1px solid var(--line)}
+  button.b.ok{background:var(--ok)} button.b.bad{background:var(--bad)} button.b.sm{padding:5px 10px;font-size:12px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700}
+  .pill.pending{background:#fff3d6;color:#8a5a00}.pill.paid,.pill.active{background:#d9f5e5;color:#0b6b36}
+  .pill.rejected,.pill.revoked,.pill.expired{background:#fde1de;color:#a1180d}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+  .muted{color:var(--sub)}
+  #login{max-width:360px;margin:12vh auto;padding:0 16px}
+  #err{color:var(--bad);margin-top:8px}
+  dialog{border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);padding:18px;max-width:420px;width:92vw}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:12px;opacity:0;transition:.25s;pointer-events:none;z-index:20}
+  .toast.show{opacity:1}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+
+<section id="login" class="hide">
+  <div class="card">
+    <h2 style="margin-top:0">🔐 Admin login</h2>
+    <label>Email</label><input id="em" type="email" autocomplete="username" style="width:100%">
+    <label>Password</label><input id="pw" type="password" autocomplete="current-password" style="width:100%">
+    <p><button class="b" id="loginBtn" style="width:100%">Login</button></p>
+    <div id="err"></div>
+  </div>
+</section>
+
+<div id="app" class="hide">
+  <header>
+    <h1>🎮 Mathra Pipes – Admin</h1>
+    <small id="who"></small>
+    <button class="b ghost sm" id="logout">Logout</button>
+  </header>
+  <nav id="tabs">
+    <button data-t="dash" class="on">📊 Dashboard</button>
+    <button data-t="orders">🧾 Orders</button>
+    <button data-t="subs">👑 Activations</button>
+    <button data-t="plans">💰 Prices</button>
+    <button data-t="board">🏆 Leaderboard</button>
+    <button data-t="devices">📱 Devices</button>
+    <button data-t="settings">⚙️ Settings</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section id="t-dash">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Live numbers (real, from the database)</h2>
+        <button class="b ghost sm" id="refreshDash">↻ Refresh</button>
+      </div>
+      <h2>Users</h2>
+      <div class="grid" id="gUsers"></div>
+      <h2>Money</h2>
+      <div class="grid" id="gMoney"></div>
+      <p class="muted" style="font-size:12px;margin-top:14px">
+        “Installs” = phones that opened the game at least once (one record per phone).
+        Play-Store download counts are not available to the game, this number is the real one for your own database.
+        “Paid” only increases when YOU press “Paid &amp; Activate”.
+      </p>
+    </section>
+
+    <!-- ORDERS -->
+    <section id="t-orders" class="hide">
+      <div class="row">
+        <div><label>Status</label>
+          <select id="ordFilter"><option value="all">All</option><option value="pending" selected>Pending</option><option value="paid">Paid</option><option value="rejected">Rejected</option></select></div>
+        <div><label>Search (Device ID / name / order)</label><input id="ordSearch" placeholder="search…"></div>
+        <button class="b ghost" id="ordReload">↻ Reload</button>
+      </div>
+      <div class="card scroll" style="margin-top:12px"><table id="ordTable"></table></div>
+    </section>
+
+    <!-- SUBS -->
+    <section id="t-subs" class="hide">
+      <div class="card">
+        <b>➕ Manual activation</b> <span class="muted">(cash / gift / old lifetime buyer)</span>
+        <div class="row">
+          <div><label>Device ID</label><input id="mgDev" placeholder="A1B2C-3D4E5"></div>
+          <div><label>Days</label><input id="mgDays" type="number" min="1" value="30" style="width:90px"></div>
+          <div><label>Paid Rs (0 = gift)</label><input id="mgPaid" type="number" min="0" value="0" style="width:110px"></div>
+          <div><label>Note</label><input id="mgNote" placeholder="optional"></div>
+          <button class="b ok" id="mgGo">Activate</button>
+        </div>
+      </div>
+      <div class="row"><button class="b ghost" id="subReload">↻ Reload</button></div>
+      <div class="card scroll" style="margin-top:12px"><table id="subTable"></table></div>
+    </section>
+
+    <!-- PLANS -->
+    <section id="t-plans" class="hide">
+      <p class="muted">These prices are shown in the game AND on your public price page. Change here → changes everywhere.</p>
+      <div class="card scroll"><table id="planTable"></table></div>
+      <div class="card">
+        <b>➕ New plan</b>
+        <div class="row">
+          <div><label>ID (letters/numbers)</label><input id="npId" placeholder="d3" style="width:90px"></div>
+          <div><label>Name</label><input id="npName" placeholder="3 Days"></div>
+          <div><label>නම</label><input id="npSi" placeholder="දවස් 3"></div>
+          <div><label>Days</label><input id="npDays" type="number" min="1" style="width:80px"></div>
+          <div><label>Price Rs</label><input id="npPrice" type="number" min="0" style="width:90px"></div>
+          <button class="b" id="npAdd">Add</button>
+        </div>
+        <p style="margin-bottom:0"><button class="b ghost" id="loadDefaults">Load default plans (1d 5, 2d 10, 1m 100, 2m 200, 6m 500, 1y 1000)</button></p>
+      </div>
+    </section>
+
+    <!-- BOARD -->
+    <section id="t-board" class="hide">
+      <div class="row"><div class="muted" id="leaderInfo"></div><button class="b ghost sm" id="boardReload">↻ Reload</button></div>
+      <div class="card scroll" style="margin-top:12px"><table id="boardTable"></table></div>
+      <h2>Banned</h2>
+      <div class="card scroll"><table id="banTable"></table></div>
+    </section>
+
+    <!-- DEVICES -->
+    <section id="t-devices" class="hide">
+      <div class="row"><input id="devSearch" placeholder="search Device ID / name"><button class="b ghost" id="devReload">↻ Reload</button></div>
+      <div class="card scroll" style="margin-top:12px"><table id="devTable"></table></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="t-settings" class="hide">
+      <div class="card">
+        <b>Contact (shown in the game + price page)</b>
+        <label>WhatsApp number (digits only, 94…)</label><input id="sWa" style="width:100%">
+        <label>WhatsApp display text</label><input id="sWaD" style="width:100%">
+        <label>How to pay (English)</label><textarea id="sPay" rows="3" style="width:100%"></textarea>
+        <label>How to pay (සිංහල)</label><textarea id="sPaySi" rows="3" style="width:100%"></textarea>
+      </div>
+      <div class="card">
+        <b>Free hint rules</b>
+        <p class="muted">Start: every phone gets 3 free hints once (set in the app). Then:</p>
+        <div class="row">
+          <div><label>Score needed (once)</label><input id="sMsPts" type="number" min="1" style="width:110px"></div>
+          <div><label>Hints for that</label><input id="sMsHints" type="number" min="0" style="width:90px"></div>
+          <div><label>Hints when a player becomes #1</label><input id="sLead" type="number" min="0" style="width:90px"></div>
+          <div><label>#1 bonus once per player?</label>
+            <select id="sLeadOnce"><option value="true">Yes (recommended)</option><option value="false">No – every time they retake #1</option></select></div>
+        </div>
+      </div>
+      <button class="b" id="saveSettings">Save settings</button>
+    </section>
+  </main>
+</div>
+
+<dialog id="payDlg">
+  <b>✔ Paid &amp; Activate</b>
+  <p class="muted" id="payInfo"></p>
+  <label>Amount received (Rs)</label><input id="payAmt" type="number" min="0" style="width:100%">
+  <label>Days to add</label><input id="payDays" type="number" min="1" style="width:100%">
+  <div class="row" style="margin-top:14px;justify-content:flex-end">
+    <button class="b ghost" id="payCancel">Cancel</button>
+    <button class="b ok" id="payOk">Activate</button>
+  </div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { firebaseConfig } from './firebase-config.js';
+import {
+  initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
+  query, orderBy, limit, where, Timestamp, serverTimestamp, writeBatch,
+  runTransaction, getCountFromServer, getAggregateFromServer, sum,
+} from './sdk.js';
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const $ = (id) => document.getElementById(id);
+const DAY = 864e5;
+const DEV_RE = /^[0-9A-F]{5}-[0-9A-F]{5}$/;
+
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ms = (t) => (t && t.toMillis ? t.toMillis() : (typeof t === 'number' ? t : 0));
+const fmt = (t) => { const m = ms(t); return m ? new Date(m).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '–'; };
+const rs = (n) => 'Rs ' + (Number(n) || 0).toLocaleString('en-US');
+function left(t) {
+  const d = ms(t) - Date.now();
+  if (d <= 0) return 'expired';
+  const days = Math.floor(d / DAY), h = Math.floor((d % DAY) / 36e5);
+  return days > 0 ? `${days}d ${h}h left` : `${h}h ${Math.floor((d % 36e5) / 6e4)}m left`;
+}
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2600); }
+function fail(e) { console.error(e); toast('❌ ' + (e && e.message ? e.message : e)); }
+function normDevice(v) {
+  const s = String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+  return s.length === 10 ? s.slice(0, 5) + '-' + s.slice(5) : String(v || '').toUpperCase().trim();
+}
+
+// ───────────────────────── auth ─────────────────────────
+onAuthStateChanged(auth, (u) => {
+  $('login').classList.toggle('hide', !!u);
+  $('app').classList.toggle('hide', !u);
+  if (u) { $('who').textContent = u.email; loadTab(current); }
+});
+$('loginBtn').onclick = async () => {
+  $('err').textContent = '';
+  try { await signInWithEmailAndPassword(auth, $('em').value.trim(), $('pw').value); }
+  catch (e) { $('err').textContent = 'Login failed: ' + (e.code || e.message); }
+};
+$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+$('logout').onclick = () => signOut(auth);
+
+// ───────────────────────── tabs ─────────────────────────
+let current = 'dash';
+const loaders = {
+  dash: loadDash, orders: loadOrders, subs: loadSubs, plans: loadPlans,
+  board: loadBoard, devices: loadDevices, settings: loadSettings,
+};
+$('tabs').onclick = (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  current = b.dataset.t;
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  document.querySelectorAll('main > section').forEach((s) => s.classList.toggle('hide', s.id !== 't-' + current));
+  loadTab(current);
+};
+function loadTab(t) { Promise.resolve(loaders[t]()).catch(fail); }
+setInterval(() => { if (auth.currentUser && current === 'dash' && !document.hidden) loadTab('dash'); }, 60000);
+
+// ───────────────────────── dashboard ─────────────────────────
+const cnt = async (q) => (await getCountFromServer(q)).data().count;
+const total = async (q, f) => (await getAggregateFromServer(q, { t: sum(f) })).data().t || 0;
+function tile(label, value, cls = '') { return `<div class="stat ${cls}"><b>${esc(value)}</b><span>${esc(label)}</span></div>`; }
+
+async function loadDash() {
+  const devices = collection(db, 'devices'), orders = collection(db, 'orders');
+  const subs = collection(db, 'subs'), players = collection(db, 'players');
+  const now = Date.now();
+  const since = (d) => query(devices, where('lastSeen', '>=', Timestamp.fromMillis(now - d * DAY)));
+  const [installs, a1, a7, a30, opens, viewers, views, oAll, oPend, oPaid, oRej, revenue, subAct, subAll, pl] =
+    await Promise.all([
+      cnt(devices), cnt(since(1)), cnt(since(7)), cnt(since(30)),
+      total(devices, 'opens'), cnt(query(devices, where('planViews', '>', 0))), total(devices, 'planViews'),
+      cnt(orders), cnt(query(orders, where('status', '==', 'pending'))),
+      cnt(query(orders, where('status', '==', 'paid'))), cnt(query(orders, where('status', '==', 'rejected'))),
+      total(query(orders, where('status', '==', 'paid')), 'paidRs'),
+      cnt(query(subs, where('expiresAt', '>', Timestamp.now()))), cnt(subs), cnt(players),
+    ]);
+  const conv = installs ? ((oPaid / installs) * 100).toFixed(1) + '%' : '–';
+  $('gUsers').innerHTML =
+    tile('Installs (phones that opened the game)', installs) +
+    tile('Active – last 24 hours', a1) + tile('Active – last 7 days', a7) + tile('Active – last 30 days', a30) +
+    tile('Total app opens', opens) +
+    tile('Phones that viewed the prices', viewers) + tile('Total price-screen views', views) +
+    tile('Players on leaderboard', pl);
+  $('gMoney').innerHTML =
+    tile('Orders requested (“bought”)', oAll) + tile('Waiting for you', oPend, oPend ? 'warn' : '') +
+    tile('PAID orders', oPaid, 'ok') + tile('Rejected', oRej) +
+    tile('Revenue (paid)', rs(revenue), 'ok') + tile('Active activations now', subAct, 'ok') +
+    tile('Activations ever', subAll) + tile('Paid ÷ installs', conv);
+}
+$('refreshDash').onclick = () => loadTab('dash');
+
+// ───────────────────────── orders ─────────────────────────
+let ordersCache = [];
+async function loadOrders() {
+  const snap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(300)));
+  ordersCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  renderOrders();
+}
+function renderOrders() {
+  const f = $('ordFilter').value, s = $('ordSearch').value.trim().toLowerCase();
+  const rows = ordersCache.filter((o) => (f === 'all' || o.status === f) &&
+    (!s || [o.id, o.deviceId, o.playerName, o.planName].join(' ').toLowerCase().includes(s)));
+  $('ordTable').innerHTML = '<tr><th>When</th><th>Device</th><th>Player</th><th>Plan</th><th>Price</th><th>Status</th><th></th></tr>' +
+    (rows.map((o) => `<tr>
+      <td>${esc(fmt(o.createdAt))}</td><td><code>${esc(o.deviceId)}</code></td><td>${esc(o.playerName || '–')}</td>
+      <td>${esc(o.planName)} <span class="muted">(${esc(o.days)}d)</span></td><td>${rs(o.status === 'paid' ? o.paidRs : o.priceRs)}</td>
+      <td><span class="pill ${esc(o.status)}">${esc(o.status)}</span></td>
+      <td>${o.status === 'pending'
+        ? `<button class="b ok sm" data-act="pay" data-id="${esc(o.id)}">Paid &amp; Activate</button>
+           <button class="b bad sm" data-act="rej" data-id="${esc(o.id)}">Reject</button>`
+        : `<button class="b ghost sm" data-act="del" data-id="${esc(o.id)}">Delete</button>`}</td></tr>`).join('') ||
+      '<tr><td colspan="7" class="muted">Nothing here.</td></tr>');
+}
+['ordFilter', 'ordSearch'].forEach((i) => $(i).addEventListener('input', renderOrders));
+$('ordReload').onclick = () => loadTab('orders');
+$('ordTable').onclick = async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const o = ordersCache.find((x) => x.id === b.dataset.id); if (!o) return;
+  try {
+    if (b.dataset.act === 'pay') openPay(o);
+    if (b.dataset.act === 'rej') { await updateDoc(doc(db, 'orders', o.id), { status: 'rejected' }); toast('Rejected'); loadOrders(); }
+    if (b.dataset.act === 'del' && confirm('Delete this order record?\n(Paid orders count in revenue!)')) {
+      await deleteDoc(doc(db, 'orders', o.id)); loadOrders();
+    }
+  } catch (err) { fail(err); }
+};
+
+let payOrder = null;
+function openPay(o) {
+  payOrder = o;
+  $('payInfo').textContent = `${o.planName} • ${o.deviceId} • ${o.playerName || ''}`;
+  $('payAmt').value = o.priceRs; $('payDays').value = o.days;
+  $('payDlg').showModal();
+}
+$('payCancel').onclick = () => $('payDlg').close();
+$('payOk').onclick = async () => {
+  const days = parseInt($('payDays').value, 10), amt = parseInt($('payAmt').value, 10);
+  if (!(days > 0) || !(amt >= 0)) return toast('Check amount / days');
+  try {
+    await activate({ deviceId: payOrder.deviceId, days, planId: payOrder.planId, planName: payOrder.planName, orderId: payOrder.id },
+      (tx) => tx.update(doc(db, 'orders', payOrder.id), { status: 'paid', paidRs: amt, paidAt: serverTimestamp(), activatedDays: days }));
+    $('payDlg').close(); toast('✅ Activated'); loadOrders();
+  } catch (e) { fail(e); }
+};
+
+// Adds `days` to the device's activation (extends if still active), atomically.
+async function activate({ deviceId, days, planId, planName, orderId, note }, alsoInTx) {
+  await runTransaction(db, async (tx) => {
+    const ref = doc(db, 'subs', deviceId);
+    const cur = await tx.get(ref);
+    let base = Date.now(), startedAt = serverTimestamp();
+    if (cur.exists()) {
+      const d = cur.data();
+      if (d.startedAt) startedAt = d.startedAt;
+      if (d.status === 'active' && ms(d.expiresAt) > base) base = ms(d.expiresAt);
+    }
+    tx.set(ref, {
+      planId: planId || 'manual', planName: planName || 'Manual', days, orderId: orderId || '',
+      status: 'active', startedAt, updatedAt: serverTimestamp(), note: note || '',
+      expiresAt: Timestamp.fromMillis(base + days * DAY),
+    });
+    if (alsoInTx) alsoInTx(tx);
+  });
+}
+
+// ───────────────────────── activations ─────────────────────────
+let subsCache = [];
+async function loadSubs() {
+  const snap = await getDocs(query(collection(db, 'subs'), orderBy('expiresAt', 'desc'), limit(300)));
+  subsCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  $('subTable').innerHTML = '<tr><th>Device</th><th>Plan</th><th>Expires</th><th>Left</th><th>Status</th><th></th></tr>' +
+    (subsCache.map((s) => {
+      const live = s.status === 'active' && ms(s.expiresAt) > Date.now();
+      const st = live ? 'active' : (s.status === 'revoked' ? 'revoked' : 'expired');
+      return `<tr><td><code>${esc(s.id)}</code></td><td>${esc(s.planName)}</td><td>${esc(fmt(s.expiresAt))}</td>
+        <td>${live ? esc(left(s.expiresAt)) : '–'}</td><td><span class="pill ${st}">${st}</span></td>
+        <td><button class="b ghost sm" data-act="add" data-id="${esc(s.id)}">+ days</button>
+        ${live ? `<button class="b bad sm" data-act="revoke" data-id="${esc(s.id)}">Remove now</button>` : ''}
+        <button class="b ghost sm" data-act="del" data-id="${esc(s.id)}">Delete</button></td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="muted">No activations yet.</td></tr>');
+}
+$('subReload').onclick = () => loadTab('subs');
+$('subTable').onclick = async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const id = b.dataset.id;
+  try {
+    if (b.dataset.act === 'revoke' && confirm(`Remove activation of ${id} right now?`)) {
+      await updateDoc(doc(db, 'subs', id), { status: 'revoked', expiresAt: Timestamp.now(), updatedAt: serverTimestamp() });
+      toast('Removed – the phone loses it next time it checks'); loadSubs();
+    }
+    if (b.dataset.act === 'add') {
+      const d = parseInt(prompt('How many days to add?', '30'), 10);
+      if (d > 0) { await activate({ deviceId: id, days: d, planName: 'Extended', note: 'extended by admin' }); toast('Extended'); loadSubs(); }
+    }
+    if (b.dataset.act === 'del' && confirm('Delete this record completely?')) { await deleteDoc(doc(db, 'subs', id)); loadSubs(); }
+  } catch (err) { fail(err); }
+};
+$('mgGo').onclick = async () => {
+  const deviceId = normDevice($('mgDev').value), days = parseInt($('mgDays').value, 10), paid = parseInt($('mgPaid').value, 10) || 0;
+  if (!DEV_RE.test(deviceId)) return toast('Device ID looks wrong (A1B2C-3D4E5)');
+  if (!(days > 0)) return toast('Days?');
+  try {
+    const oid = 'manual_' + Date.now();
+    await activate({ deviceId, days, planId: 'manual', planName: paid ? 'Manual (paid)' : 'Gift', orderId: oid, note: $('mgNote').value },
+      (tx) => tx.set(doc(db, 'orders', oid), {
+        deviceId, planId: 'manual', planName: paid ? 'Manual (paid)' : 'Gift', days, priceRs: paid, paidRs: paid,
+        playerName: '', status: 'paid', source: 'manual', createdAt: serverTimestamp(), paidAt: serverTimestamp(), note: $('mgNote').value,
+      }));
+    toast('✅ Activated'); $('mgDev').value = ''; loadSubs();
+  } catch (e) { fail(e); }
+};
+
+// ───────────────────────── plans ─────────────────────────
+const DEFAULT_PLANS = [
+  { id: 'd1', name: '1 Day', nameSi: 'දවස් 1', days: 1, priceRs: 5, sort: 1 },
+  { id: 'd2', name: '2 Days', nameSi: 'දවස් 2', days: 2, priceRs: 10, sort: 2 },
+  { id: 'm1', name: '1 Month', nameSi: 'මාසය 1', days: 30, priceRs: 100, sort: 3 },
+  { id: 'm2', name: '2 Months', nameSi: 'මාස 2', days: 60, priceRs: 200, sort: 4 },
+  { id: 'm6', name: '6 Months', nameSi: 'මාස 6', days: 180, priceRs: 500, sort: 5 },
+  { id: 'y1', name: '1 Year', nameSi: 'අවුරුද්ද 1', days: 365, priceRs: 1000, sort: 6 },
+];
+async function loadPlans() {
+  const snap = await getDocs(query(collection(db, 'plans'), orderBy('sort')));
+  $('planTable').innerHTML = '<tr><th>ID</th><th>Name</th><th>නම</th><th>Days</th><th>Rs</th><th>Order</th><th>Show</th><th></th></tr>' +
+    (snap.docs.map((d) => { const p = d.data(); return `<tr data-id="${esc(d.id)}">
+      <td><code>${esc(d.id)}</code></td>
+      <td><input data-f="name" value="${esc(p.name)}" style="width:110px"></td>
+      <td><input data-f="nameSi" value="${esc(p.nameSi)}" style="width:110px"></td>
+      <td><input data-f="days" type="number" min="1" value="${esc(p.days)}" style="width:70px"></td>
+      <td><input data-f="priceRs" type="number" min="0" value="${esc(p.priceRs)}" style="width:80px"></td>
+      <td><input data-f="sort" type="number" value="${esc(p.sort ?? 0)}" style="width:60px"></td>
+      <td><input data-f="active" type="checkbox" ${p.active ? 'checked' : ''}></td>
+      <td><button class="b sm" data-act="save">Save</button> <button class="b bad sm" data-act="del">Delete</button></td></tr>`; }).join('') ||
+      '<tr><td colspan="8" class="muted">No plans yet – press “Load default plans” below.</td></tr>');
+}
+$('planTable').onclick = async (e) => {
+  const b = e.target.closest('button'); if (!b) return;
+  const tr = b.closest('tr'), id = tr.dataset.id;
+  try {
+    if (b.dataset.act === 'del' && confirm(`Delete plan ${id}?`)) { await deleteDoc(doc(db, 'plans', id)); loadPlans(); return; }
+    if (b.dataset.act === 'save') {
+      const g = (f) => tr.querySelector(`[data-f=${f}]`);
+      await setDoc(doc(db, 'plans', id), {
+        name: g('name').value.trim(), nameSi: g('nameSi').value.trim(),
+        days: parseInt(g('days').value, 10), priceRs: parseInt(g('priceRs').value, 10),
+        sort: parseInt(g('sort').value, 10) || 0, active: g('active').checked,
+      }, { merge: true });
+      toast('Saved – game + price page updated');
+    }
+  } catch (err) { fail(err); }
+};
+$('npAdd').onclick = async () => {
+  const id = $('npId').value.trim(), days = parseInt($('npDays').value, 10), price = parseInt($('npPrice').value, 10);
+  if (!/^[A-Za-z0-9]{1,20}$/.test(id) || !(days > 0) || !(price >= 0) || !$('npName').value.trim()) return toast('Fill ID, name, days, price');
+  try {
+    await setDoc(doc(db, 'plans', id), { name: $('npName').value.trim(), nameSi: $('npSi').value.trim() || $('npName').value.trim(), days, priceRs: price, sort: 50, active: true });
+    ['npId', 'npName', 'npSi', 'npDays', 'npPrice'].forEach((i) => ($(i).value = '')); loadPlans();
+  } catch (e) { fail(e); }
+};
+$('loadDefaults').onclick = async () => {
+  if (!confirm('Create / overwrite the 6 default plans?')) return;
+  try {
+    const b = writeBatch(db);
+    DEFAULT_PLANS.forEach(({ id, ...p }) => b.set(doc(db, 'plans', id), { ...p, active: true }));
+    await b.commit(); toast('Default plans loaded'); loadPlans();
+  } catch (e) { fail(e); }
+};
+
+// ───────────────────────── leaderboard ─────────────────────────
+let boardCache = [];
+async function loadBoard() {
+  const [snap, ban, lead] = await Promise.all([
+    getDocs(query(collection(db, 'players'), orderBy('score', 'desc'), limit(100))),
+    getDocs(collection(db, 'banned')), getDoc(doc(db, 'meta', 'leader')),
+  ]);
+  boardCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  $('leaderInfo').textContent = lead.exists() ? `Current #1 holder: ${lead.data().name} (since ${fmt(lead.data().at)}, change #${lead.data().seq})` : 'Nobody has taken #1 yet.';
+  $('boardTable').innerHTML = '<tr><th>#</th><th>Name</th><th>Score</th><th>Levels</th><th>Best s</th><th>Updated</th><th></th></tr>' +
+    (boardCache.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td>${esc(p.score)}</td><td>${esc(p.levels)}</td>
+      <td>${esc(p.bestSeconds)}</td><td>${esc(fmt(p.updatedAt))}</td>
+      <td><button class="b ghost sm" data-act="del" data-id="${esc(p.id)}">Remove</button>
+      <button class="b bad sm" data-act="ban" data-id="${esc(p.id)}">Remove + ban</button></td></tr>`).join('') ||
+      '<tr><td colspan="7" class="muted">No players.</td></tr>');
+  $('banTable').innerHTML = '<tr><th>Name</th><th>ID</th><th></th></tr>' +
+    (ban.docs.map((d) => `<tr><td>${esc(d.data().name)}</td><td><code>${esc(d.id)}</code></td>
+      <td><button class="b ghost sm" data-act="unban" data-id="${esc(d.id)}">Unban</button></td></tr>`).join('') ||
+      '<tr><td colspan="3" class="muted">Nobody banned.</td></tr>');
+}
+$('boardReload').onclick = () => loadTab('board');
+async function boardClick(e) {
+  const b = e.target.closest('button'); if (!b) return;
+  const id = b.dataset.id, p = boardCache.find((x) => x.id === id);
+  try {
+    if (b.dataset.act === 'del' && confirm('Remove this player? (they can come back by playing again)')) await deleteDoc(doc(db, 'players', id));
+    if (b.dataset.act === 'ban' && confirm('Remove AND ban this player (cheater)?')) {
+      const bt = writeBatch(db);
+      bt.set(doc(db, 'banned', id), { name: p ? p.name : '', at: serverTimestamp() });
+      bt.delete(doc(db, 'players', id)); await bt.commit();
+    }
+    if (b.dataset.act === 'unban') await deleteDoc(doc(db, 'banned', id));
+    loadBoard();
+  } catch (err) { fail(err); }
+}
+$('boardTable').onclick = boardClick; $('banTable').onclick = boardClick;
+
+// ───────────────────────── devices ─────────────────────────
+let devCache = [];
+async function loadDevices() {
+  const snap = await getDocs(query(collection(db, 'devices'), orderBy('lastSeen', 'desc'), limit(300)));
+  devCache = snap.docs.map((d) => ({ id: d.id, ...d.data() })); renderDevices();
+}
+function renderDevices() {
+  const s = $('devSearch').value.trim().toLowerCase();
+  const rows = devCache.filter((d) => !s || (d.id + ' ' + (d.playerName || '')).toLowerCase().includes(s));
+  $('devTable').innerHTML = '<tr><th>Device ID</th><th>Player</th><th>First seen</th><th>Last seen</th><th>Opens</th><th>Price views</th><th>Version</th></tr>' +
+    (rows.map((d) => `<tr><td><code>${esc(d.id)}</code></td><td>${esc(d.playerName || '–')}</td><td>${esc(fmt(d.firstSeen))}</td>
+      <td>${esc(fmt(d.lastSeen))}</td><td>${esc(d.opens)}</td><td>${esc(d.planViews)}</td><td>${esc(d.version)}</td></tr>`).join('') ||
+      '<tr><td colspan="7" class="muted">No devices yet.</td></tr>');
+}
+$('devSearch').addEventListener('input', renderDevices); $('devReload').onclick = () => loadTab('devices');
+
+// ───────────────────────── settings ─────────────────────────
+const CFG_DEFAULT = { whatsapp: '94783756055', whatsappDisplay: '+94 78 375 6055', payInfo: '', payInfoSi: '',
+  milestonePoints: 400, milestoneHints: 3, leaderBonusHints: 3, leaderOncePerPlayer: true };
+async function loadSettings() {
+  const s = await getDoc(doc(db, 'config', 'app'));
+  const c = { ...CFG_DEFAULT, ...(s.exists() ? s.data() : {}) };
+  $('sWa').value = c.whatsapp; $('sWaD').value = c.whatsappDisplay; $('sPay').value = c.payInfo; $('sPaySi').value = c.payInfoSi;
+  $('sMsPts').value = c.milestonePoints; $('sMsHints').value = c.milestoneHints; $('sLead').value = c.leaderBonusHints;
+  $('sLeadOnce').value = String(!!c.leaderOncePerPlayer);
+}
+$('saveSettings').onclick = async () => {
+  const wa = $('sWa').value.replace(/\D/g, '');
+  if (wa.length < 9) return toast('WhatsApp number? (94…)');
+  try {
+    await setDoc(doc(db, 'config', 'app'), {
+      whatsapp: wa, whatsappDisplay: $('sWaD').value.trim(), payInfo: $('sPay').value.trim(), payInfoSi: $('sPaySi').value.trim(),
+      milestonePoints: Math.max(1, parseInt($('sMsPts').value, 10) || 400), milestoneHints: Math.max(0, parseInt($('sMsHints').value, 10) || 0),
+      leaderBonusHints: Math.max(0, parseInt($('sLead').value, 10) || 0), leaderOncePerPlayer: $('sLeadOnce').value === 'true',
+    });
+    toast('Saved');
+  } catch (e) { fail(e); }
+};
+</script>
+</body>
+</html>

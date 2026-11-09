@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mathra Pipes – Hint Plans</title>
+<style>
+  :root{ --bg:#f4f6fb; --card:#fff; --ink:#1b2333; --sub:#667085; --line:#e3e7ef; --acc:#2f6bff; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#0f1420; --card:#171e2e; --ink:#e8ecf5; --sub:#93a0b8; --line:#27304a; } }
+  *{box-sizing:border-box}
+  body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  main{max-width:560px;margin:0 auto;padding:24px 16px 48px}
+  h1{font-size:24px;margin:0 0 4px} p{color:var(--sub);margin:.3em 0 1em}
+  .plan{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:10px 0}
+  .plan b{font-size:17px;display:block} .plan small{color:var(--sub)}
+  .price{font-size:22px;font-weight:800;color:var(--acc);white-space:nowrap}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:14px 0;white-space:pre-line}
+  a.btn{display:block;text-align:center;background:#12a150;color:#fff;text-decoration:none;font-weight:700;padding:13px;border-radius:14px;margin-top:16px}
+  .muted{color:var(--sub);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <h1>💡 Mathra Pipes – Hint Plans</h1>
+  <p>Unlimited hints while your plan is active. Prices in Rs.<br>අසීමිත ඉඟි – ඔයාගේ plan එක ඉවර වෙනකන්.</p>
+  <div id="plans"><p class="muted">Loading…</p></div>
+  <div class="box" id="how"></div>
+  <div class="box">🎁 <b>Free hints</b>
+3 free hints to start · extra free hints when you reach the score milestone · +hints when you become #1 on the leaderboard.
+නොමිලේ ඉඟි 3ක් · ලකුණු ඉලක්කයට ගියාම තව ඉඟි · Leaderboard එකේ #1 වුණාම තව ඉඟි.</div>
+  <a class="btn" id="wa" href="#" style="display:none">💬 WhatsApp</a>
+  <p class="muted" style="margin-top:18px">How to buy: open the game → tap Hint when you have 0 → pick a plan. After your payment is confirmed it activates automatically.<br>
+  ගන්නේ කොහොමද: ගේම් එකේ Hint ඔබන්න → plan එකක් තෝරන්න → ගෙවීම confirm උනාම auto activate වෙනවා.</p>
+</main>
+<script type="module">
+import { firebaseConfig as c } from './firebase-config.js';
+const base = `https://firestore.googleapis.com/v1/projects/${c.projectId}/databases/(default)/documents`;
+const val = (f) => f && (f.stringValue ?? (f.integerValue !== undefined ? Number(f.integerValue) : f.booleanValue));
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const dur = (d) => d >= 365 ? `${Math.round(d / 365)} year${d >= 730 ? 's' : ''}` : d >= 30 ? `${Math.round(d / 30)} month${d >= 60 ? 's' : ''}` : `${d} day${d > 1 ? 's' : ''}`;
+async function get(path) {
+  const r = await fetch(`${base}/${path}${path.includes('?') ? '&' : '?'}key=${c.apiKey}`);
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+try {
+  const [pl, cfg] = await Promise.all([get('plans?pageSize=50'), get('config/app').catch(() => null)]);
+  const plans = (pl.documents || []).map((d) => {
+    const f = d.fields || {};
+    return { name: val(f.name), si: val(f.nameSi), days: val(f.days), price: val(f.priceRs), active: val(f.active), sort: val(f.sort) || 0 };
+  }).filter((p) => p.active).sort((a, b) => a.sort - b.sort);
+  document.getElementById('plans').innerHTML = plans.map((p) => `
+    <div class="plan"><div><b>${esc(p.name)} <span class="muted">${esc(p.si || '')}</span></b><small>${esc(dur(p.days))} · unlimited hints</small></div>
+    <div class="price">Rs ${esc(p.price)}</div></div>`).join('') || '<p class="muted">No plans right now.</p>';
+  const f = (cfg && cfg.fields) || {};
+  const how = [val(f.payInfo), val(f.payInfoSi)].filter(Boolean).join('\n\n');
+  document.getElementById('how').style.display = how ? '' : 'none';
+  document.getElementById('how').textContent = how;
+  const wa = val(f.whatsapp);
+  if (wa) {
+    const a = document.getElementById('wa');
+    a.href = 'https://wa.me/' + String(wa).replace(/\D/g, '');
+    a.textContent = '💬 WhatsApp ' + (val(f.whatsappDisplay) || '');
+    a.style.display = '';
+  }
+} catch (e) {
+  document.getElementById('plans').innerHTML = '<p class="muted">Could not load prices. Please try again.</p>';
+}
+</script>
+</body>
+</html>
