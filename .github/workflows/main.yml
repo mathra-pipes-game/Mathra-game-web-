@@ -19,10 +19,20 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Find project folder
+        id: proj
+        run: |
+          FILE=$(find . -name pubspec.yaml -not -path '*/.*' | awk '{print length, $0}' | sort -n | head -n 1 | cut -d' ' -f2-)
+          DIR=$(dirname "$FILE")
+          echo "Project folder: $DIR"
+          echo "dir=$DIR" >> $GITHUB_OUTPUT
+
       - name: Get packages
+        working-directory: ${{ steps.proj.outputs.dir }}
         run: flutter pub get
 
       - name: Build APK (with retries)
+        working-directory: ${{ steps.proj.outputs.dir }}
         run: |
           for attempt in 1 2 3; do
             if flutter build apk --release; then
@@ -36,4 +46,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: mathra-pipes-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: ${{ steps.proj.outputs.dir }}/build/app/outputs/flutter-apk/app-release.apk
